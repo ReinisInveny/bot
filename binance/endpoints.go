@@ -12,34 +12,36 @@ import (
 	"github.com/gangisreinis/bot/models"
 )
 
-func FetchKlines(ticker string, interval string) ([]models.KlineData, error) {
+func FetchKlines(ticker string, interval string) ([]models.KlineData, []models.TechnicalIndicator, error) {
 	log.Println("requested binance API endpoint '/api/v3/klines/'")
 	klineLimit := "1000"
 
 	resp, err := http.Get(fmt.Sprintf("https://api.binance.com/api/v3/klines?symbol=%s&interval=%s&limit=%s", ticker, interval, klineLimit))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	log.Println("received response from binance API")
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var tempKlines [][]interface{}
 	err = json.Unmarshal(body, &tempKlines)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var klines []models.KlineData
 	var closePrices []float64
+	// var lowPrices []float64
+	// var highPrices []float64
 
-	for i := 1; i < len(tempKlines); i++ {
+	for i := 1; i < len(tempKlines)-1; i++ {
 		if tempKlines[i][0].(float64) < tempKlines[i-1][0].(float64) {
-			return nil, fmt.Errorf("klines are not sorted in ascending order")
+			return nil, nil, fmt.Errorf("klines are not sorted in ascending order")
 		}
 
 		kline := models.KlineData{
@@ -64,37 +66,37 @@ func FetchKlines(ticker string, interval string) ([]models.KlineData, error) {
 
 		closePrice, err := strconv.ParseFloat(string(kline.ClosePrice), 64)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
+		// lowPrice, err := strconv.ParseFloat(string(kline.LowPrice), 64)
+		// if err != nil {
+		// 	log.Println("could not parse low price | kline:", kline, " | Error:", err)
+		// 	continue
+		// }
+		// highPrice, err := strconv.ParseFloat(string(kline.HighPrice), 64)
+		// if err != nil {
+		// 	log.Println("could not parse high price | kline:", kline, " | Error:", err)
+		// 	continue
+		// }
 		closePrices = append(closePrices, closePrice)
+		// lowPrices = append(lowPrices, lowPrice)
+		// highPrices = append(highPrices, highPrice)
 	}
 
 	// Create channels to receive the results of the goroutines
 	ch1 := make(chan []float64)
 	ch2 := make(chan []float64)
-	ch3 := make(chan []float64)
-	ch4 := make(chan []float64)
 	defer close(ch1)
 	defer close(ch2)
-	defer close(ch3)
-	defer close(ch4)
 
 	// Define the goroutines
-	go func() {
-		fastK, fastD, err := calculation.ComputeStochRSI(closePrices, 14, 3, 3)
-		if err != nil {
-			log.Println(err)
-		}
-		ch1 <- fastK
-		ch2 <- fastD
-	}()
 
 	go func() {
 		RSI, err := calculation.ComputeRSI(closePrices, 14)
 		if err != nil {
 			log.Println(err)
 		}
-		ch3 <- RSI
+		ch1 <- RSI
 	}()
 
 	go func() {
@@ -102,22 +104,29 @@ func FetchKlines(ticker string, interval string) ([]models.KlineData, error) {
 		if err != nil {
 			log.Println(err)
 		}
-		ch4 <- MACD
+		ch2 <- MACD
 	}()
 
 	// Wait for all goroutines to complete and collect their results
-	fastK := <-ch1
-	fastD := <-ch2
-	RSI := <-ch3
-	MACD := <-ch4
+	RSI := <-ch1
+	MACD := <-ch2
 
 	// Combine the results into the final output
-	for i := range klines {
-		klines[i].MACD = MACD[i]
-		klines[i].RSI = RSI[i]
-		klines[i].RSI_STOCH_FAST_K = fastK[i]
-		klines[i].RSI_STOCH_FAST_D = fastD[i]
+	var technicalIndicators []models.TechnicalIndicator
+	var technicalIndicator models.TechnicalIndicator
+
+	for i, kline := range klines {
+		technicalIndicator.Ticker = ticker
+		technicalIndicator.Interval = interval
+		technicalIndicator.KlineCloseTime = kline.KlineCloseTime
+		technicalIndicator.ClosePrice, _ = kline.ClosePrice.Float64()
+		technicalIndicator.BaseAssetVolume, _ = kline.BaseAssetVolume.Float64()
+		technicalIndicator.NumberOfTrades = kline.NumberOfTrades
+		technicalIndicator.MACD = MACD[i]
+		technicalIndicator.RSI = RSI[i]
+
+		technicalIndicators = append(technicalIndicators, technicalIndicator)
 	}
 
-	return klines, nil
+	return klines, technicalIndicators, nil
 }

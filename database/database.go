@@ -9,21 +9,24 @@ import (
 
 var DB *gorm.DB
 
-func Connect() {
+func Connect() error {
+	log.Println("bot connecting to database")
+
 	conn, err := gorm.Open(sqlite.Open("bot.db"), &gorm.Config{})
 
 	if err != nil {
 		log.Fatal(err)
+		return err
 	}
 
 	DB = conn
 
-	err = conn.AutoMigrate(&models.KlineData{})
+	err = conn.AutoMigrate(&models.KlineData{}, &models.TechnicalIndicator{})
 
 	if err != nil {
 		log.Fatal(err)
+		return err
 	}
 
-	log.Println("Bot connected to database")
-
+	return nil
 }

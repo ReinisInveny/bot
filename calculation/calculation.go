@@ -4,10 +4,10 @@ import (
 	"github.com/markcheno/go-talib"
 )
 
-func ComputeStochRSI(prices []float64, rsi_period, k_period, d_period int) ([]float64, []float64, error) {
+func ComputeStochRSI(high []float64, low []float64, close []float64, fastKP, slowKP, slowDP int) ([]float64, []float64, error) {
 
-	fastk, fastd := talib.StochRsi(prices, rsi_period, k_period, d_period, talib.DEMA)
-
+	// fastk, fastd := talib.StochRsi(high, low, close, fastKP, slowDP, talib.EMA, slowDP, talib.EMA)
+	fastk, fastd := talib.StochRsi(close, 14, 3, 3, talib.DEMA)
 	return fastk, fastd, nil
 }
 

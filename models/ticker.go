@@ -22,8 +22,16 @@ type KlineData struct {
 	QuoteAssetVolume         json.Number `json:"q"`
 	TakerBuyBaseAssetVolume  json.Number `json:"V"`
 	TakerBuyQuoteAssetVolume json.Number `json:"Q"`
-	MACD                     float64
-	RSI                      float64
-	RSI_STOCH_FAST_K         float64
-	RSI_STOCH_FAST_D         float64
+}
+
+type TechnicalIndicator struct {
+	ID              uint `gorm:"primaryKey"`
+	KlineCloseTime  int
+	Ticker          string
+	Interval        string
+	ClosePrice      float64
+	BaseAssetVolume float64
+	NumberOfTrades  int
+	MACD            float64
+	RSI             float64
 }

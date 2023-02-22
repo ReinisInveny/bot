@@ -1,10 +1,10 @@
 package orm
 
 import (
-	"fmt"
+	"time"
+
 	"github.com/gangisreinis/bot/database"
 	"github.com/gangisreinis/bot/models"
-	"time"
 )
 
 func AddCandle(candle models.KlineData) error {
@@ -16,9 +16,45 @@ func AddCandle(candle models.KlineData) error {
 	return nil
 }
 
+func AddTechIndicator(stats models.TechnicalIndicator) error {
+
+	if err := database.DB.Create(&stats).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func AddCandles(candles []models.KlineData) error {
+
+	if err := database.DB.CreateInBatches(candles, len(candles)).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func AddTechIndicators(stats []models.TechnicalIndicator) error {
+
+	if err := database.DB.CreateInBatches(stats, len(stats)).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func DeleteCandles() error {
 
 	if err := database.DB.Exec("DELETE FROM kline_data").Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func DeleteTechInd() error {
+
+	if err := database.DB.Exec("DELETE FROM technical_indicators").Error; err != nil {
 		return err
 	}
 
@@ -78,13 +114,9 @@ func GetCandles(limit int, interval, ticker string) ([]models.KlineData, error) 
 	}
 
 	var candles []models.KlineData
-	err := database.DB.Where("ticker = ? AND interval = ? AND kline_close_time >= ? AND kline_close_time <= ?", ticker, interval, startTime, endTime).Find(&candles).Error
+	err := database.DB.Where("ticker = ? AND interval = ? AND kline_close_time >= ?", ticker, interval, startTime).Find(&candles).Order("kline_close_time ASC").Error
 	if err != nil {
 		return nil, err
-	}
-
-	if len(candles) != limit {
-		return nil, fmt.Errorf("number of candles returned does not match the specified limit value")
 	}
 
 	return candles, nil
