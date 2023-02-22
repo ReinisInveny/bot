@@ -1,5 +1,4 @@
-bot.db
-bot.exe
-go.mod
-go.sum
+.exe
+.mod
+.sum
 .env
